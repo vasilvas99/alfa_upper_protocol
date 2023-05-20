@@ -1,12 +1,22 @@
 import sys
 
-from cli2gui import Cli2Gui
 import numpy as np
 from pathlib import Path
 from typing import Tuple
+import PySimpleGUI as sg
 import matplotlib.pyplot as plt
+from dataclasses import dataclass
 from scipy.optimize import curve_fit
-from argparse import ArgumentParser, BooleanOptionalAction
+
+
+@dataclass
+class Configuration:
+    source_path: Path
+    n_initial: float
+    tau_initial: float
+    t0_initial: float
+    fix_t0: bool
+    delimiter: str
 
 
 def johnson_mehl_avrami_kolmogorov(t, tau, n, t0):
@@ -16,7 +26,6 @@ def johnson_mehl_avrami_kolmogorov(t, tau, n, t0):
 def fit_data(t, alfa, n_ini, tau_ini, t0_ini, fix_t0=False):
     # Find the maximum value of alfa
     alfamax = np.max(alfa)
-    print(f"{n_ini=}, {tau_ini=}, {t0_ini}, {fix_t0=}")
     if fix_t0:
         print(f"Fixing t0 to {t0_ini}")
         p0 = [tau_ini, n_ini]
@@ -53,36 +62,50 @@ def load_from_file(
     return t_data, alfa_data
 
 
-def cli():
-    parser = ArgumentParser("Calculate the JMAK n vs alphaup dependece")
-    parser.add_argument(
-        "source_path",
-        help="Path to source data file",
+def parse_gui_input_values(values):
+    try:
+        path = values["-path-"]
+        n_ini = values["-n-ini-"]
+        tau_ini = values["-tau-ini-"]
+        t0_ini = values["-t0-ini-"]
+        fix_t0 = values["-fix-t0-"]
+    except KeyError as ex:
+        raise ValueError(f"Empty input field!")
+
+    try:
+        path = Path(path).resolve(True)
+    except Exception as ex:
+        raise ValueError(f"Could not resolve provided path!")
+
+    if not path.is_file():
+        raise ValueError(f"Could not resolve provided path!")
+
+    try:
+        n_ini = float(n_ini)
+    except Exception as ex:
+        raise ValueError(f"Could not parse n initial as a floating point number!")
+
+    try:
+        tau_ini = float(tau_ini)
+    except Exception as ex:
+        raise ValueError(f"Could not parse tau initial as a floating point number!")
+
+    try:
+        t0_ini = float(t0_ini)
+    except Exception as ex:
+        raise ValueError(f"Could not parse tau initial as a floating point number!")
+
+    return Configuration(
+        source_path=path,
+        n_initial=n_ini,
+        tau_initial=tau_ini,
+        t0_initial=t0_ini,
+        fix_t0=fix_t0,
+        delimiter="\t",
     )
-    parser.add_argument(
-        "n_initial", type=float, help="Initial guess for n. Used for all fits"
-    )
-    parser.add_argument(
-        "tau_initial", type=float, help="Initial guess for n. Used for all fits."
-    )
-    parser.add_argument(
-        "t0_initial", type=float, help="Initial guess for t0. Used for all fits."
-    )
-    parser.add_argument(
-        "--fix-t0",
-        type=bool,
-        action=BooleanOptionalAction,
-        help="Whether or not to fix t0 to the initial guess",
-    )
-    parser = parser.parse_args()
-    return parser
 
 
 def run(args):
-    # # Generate example dataset
-    # t = np.linspace(0, 5, 100)  # 100 evenly spaced values from 0 to 5
-    # alfa = np.tanh(2 * t) ** 2
-
     # Load directly from provided path
     data_path = Path(args.source_path).resolve(True)
     t, alfa = load_from_file(data_path)
@@ -129,17 +152,40 @@ def run(args):
 
 
 def main():
-    args = cli()
-    run(args)
+    sg.theme("Dark Grey 13")
+    labels = sg.Column(
+        [[sg.Text("N initial")], [sg.Text("tau initial")], [sg.Text("t0 initial")]]
+    )
+    inputs = sg.Column(
+        [
+            [sg.InputText(key="-n-ini-")],
+            [sg.InputText(key="-tau-ini-")],
+            [sg.InputText(key="-t0-ini-")],
+        ]
+    )
+    layout = [
+        [sg.Text("Data File Path")],
+        [sg.Input(key="-path-"), sg.FileBrowse(key="-path-")],
+        [labels, inputs],
+        [sg.Checkbox("Check to fix t0 to initial value.", key="-fix-t0-")],
+        [sg.OK(), sg.Button("Exit")],
+    ]
 
+    window = sg.Window("Alfa upper protocol for JMAK", layout)
 
-decorator_function = Cli2Gui(
-    run_function=run,
-    auto_enable=True,
-)
+    while True:
+        event, values = window.read()
+        if event == "OK":
+            try:
+                config = parse_gui_input_values(values)
+                run(config)
+            except ValueError as err:
+                sg.popup_error(f"Failed to parse:\n{str(err)}")
 
-gui = decorator_function(main)
+        if event == "Exit" or event == sg.WIN_CLOSED:
+            break
+    window.close()
 
 
 if __name__ == "__main__":
-    gui()
+    main()
