@@ -164,7 +164,7 @@ def main():
         ]
     )
     layout = [
-        [sg.Text("Data File Path")],
+        [sg.Text("Data File Path (Tab-seperated list  for (t,alfa))")],
         [sg.Input(key="-path-"), sg.FileBrowse(key="-path-")],
         [labels, inputs],
         [sg.Checkbox("Check to fix t0 to initial value.", key="-fix-t0-")],
