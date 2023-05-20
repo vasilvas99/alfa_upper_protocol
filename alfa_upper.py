@@ -154,7 +154,7 @@ def run(args):
 def main():
     sg.theme("Dark Grey 13")
     labels = sg.Column(
-        [[sg.Text("N initial")], [sg.Text("tau initial")], [sg.Text("t0 initial")]]
+        [[sg.Text("N initial guess")], [sg.Text("tau initial guess")], [sg.Text("t0 initial guess")]]
     )
     inputs = sg.Column(
         [
